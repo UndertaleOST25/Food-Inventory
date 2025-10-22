@@ -1,10 +1,10 @@
 import javax.swing.*;
-import javax.swing.table.DefaultTableModel;
+import javax.swing.table.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
+import java.util.*;
 import java.util.List;
 
 class Ingredient {
@@ -13,7 +13,7 @@ class Ingredient {
     private int quantity;
     private LocalDate expirationDate;
     private double price;
-    
+
     public Ingredient(String name, String category, int quantity, LocalDate expirationDate, double price) {
         this.name = name;
         this.category = category;
@@ -21,21 +21,20 @@ class Ingredient {
         this.expirationDate = expirationDate;
         this.price = price;
     }
-    
-    // Getters
+
     public String getName() { return name; }
     public String getCategory() { return category; }
     public int getQuantity() { return quantity; }
     public LocalDate getExpirationDate() { return expirationDate; }
     public double getPrice() { return price; }
-    
+
     public Object[] toTableRow() {
         return new Object[]{
-            name, 
-            category, 
-            quantity, 
+            name,
+            category,
+            quantity,
             expirationDate.format(DateTimeFormatter.ofPattern("MM/dd/yyyy")),
-            String.format("$%.2f", price)
+            String.format("₱%.2f", price)
         };
     }
 }
@@ -44,259 +43,281 @@ public class FoodInventoryGUI extends JFrame {
     private List<Ingredient> ingredients;
     private DefaultTableModel tableModel;
     private JTable inventoryTable;
-    
-    // Form components
     private JTextField nameField;
     private JComboBox<String> categoryComboBox;
     private JSpinner quantitySpinner;
     private JSpinner dateSpinner;
     private JSpinner priceSpinner;
     private JComboBox<String> sortComboBox;
-    
+    private JTextField searchField;
+    private TableRowSorter<DefaultTableModel> rowSorter;
+
     public FoodInventoryGUI() {
         ingredients = new ArrayList<>();
         initializeGUI();
         loadSampleData();
     }
-    
+
     private void initializeGUI() {
         setTitle("Restaurant Food Inventory Management");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout(10, 10));
-        
-        // Create main panels
+        getContentPane().setBackground(new Color(240, 255, 240));
+
+        JPanel headerPanel = createHeaderPanel();
         JPanel inputPanel = createInputPanel();
         JPanel tablePanel = createTablePanel();
         JPanel buttonPanel = createButtonPanel();
-        
-        // Add panels to frame
-        add(inputPanel, BorderLayout.NORTH);
-        add(new JScrollPane(tablePanel), BorderLayout.CENTER);
+
+        add(headerPanel, BorderLayout.NORTH);
+        add(inputPanel, BorderLayout.WEST);
+        add(tablePanel, BorderLayout.CENTER);
         add(buttonPanel, BorderLayout.SOUTH);
-        
-        pack();
-        setSize(800, 600);
+
+        setSize(950, 600);
         setLocationRelativeTo(null);
     }
-    
+
+    private JPanel createHeaderPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBackground(new Color(0, 128, 0));
+        panel.setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 15));
+
+        JLabel title = new JLabel("Restaurant Food Inventory Management", JLabel.CENTER);
+        title.setForeground(Color.WHITE);
+        title.setFont(new Font("Segoe UI", Font.BOLD, 20));
+
+        JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 5));
+        searchPanel.setBackground(new Color(0, 128, 0));
+        JLabel searchLabel = new JLabel("Search:");
+        searchLabel.setForeground(Color.WHITE);
+        searchField = new JTextField(20);
+        searchPanel.add(searchLabel);
+        searchPanel.add(searchField);
+
+        panel.add(title, BorderLayout.CENTER);
+        panel.add(searchPanel, BorderLayout.EAST);
+
+        return panel;
+    }
+
     private JPanel createInputPanel() {
         JPanel panel = new JPanel(new GridBagLayout());
-        panel.setBorder(BorderFactory.createTitledBorder("Add New Ingredient"));
+        panel.setBackground(new Color(245, 255, 245));
+        panel.setBorder(BorderFactory.createTitledBorder(BorderFactory.createLineBorder(new Color(0, 128, 0)), "Add Ingredient"));
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(5, 5, 5, 5);
+        gbc.insets = new Insets(8, 8, 8, 8);
         gbc.fill = GridBagConstraints.HORIZONTAL;
-        
-        // Name field
+
         gbc.gridx = 0; gbc.gridy = 0;
         panel.add(new JLabel("Name:"), gbc);
         gbc.gridx = 1;
-        nameField = new JTextField(15);
+        nameField = new JTextField(12);
         panel.add(nameField, gbc);
-        
-        // Category combo box
+
         gbc.gridx = 0; gbc.gridy = 1;
         panel.add(new JLabel("Category:"), gbc);
         gbc.gridx = 1;
         String[] categories = {"Produce", "Dairy", "Meat", "Seafood", "Dry Goods", "Spices", "Beverages", "Frozen"};
         categoryComboBox = new JComboBox<>(categories);
         panel.add(categoryComboBox, gbc);
-        
-        // Quantity spinner
+
         gbc.gridx = 0; gbc.gridy = 2;
         panel.add(new JLabel("Quantity:"), gbc);
         gbc.gridx = 1;
-        SpinnerNumberModel quantityModel = new SpinnerNumberModel(1, 1, 1000, 1);
-        quantitySpinner = new JSpinner(quantityModel);
+        quantitySpinner = new JSpinner(new SpinnerNumberModel(1, 1, 1000, 1));
         panel.add(quantitySpinner, gbc);
-        
-        // Date spinner
-        gbc.gridx = 2; gbc.gridy = 0;
+
+        gbc.gridx = 0; gbc.gridy = 3;
         panel.add(new JLabel("Expiration Date:"), gbc);
-        gbc.gridx = 3;
-        SpinnerDateModel dateModel = new SpinnerDateModel();
-        dateSpinner = new JSpinner(dateModel);
+        gbc.gridx = 1;
+        dateSpinner = new JSpinner(new SpinnerDateModel());
         dateSpinner.setEditor(new JSpinner.DateEditor(dateSpinner, "MM/dd/yyyy"));
         panel.add(dateSpinner, gbc);
-        
-        // Price spinner
-        gbc.gridx = 2; gbc.gridy = 1;
-        panel.add(new JLabel("Price ($):"), gbc);
-        gbc.gridx = 3;
-        SpinnerNumberModel priceModel = new SpinnerNumberModel(0.0, 0.0, 1000.0, 0.5);
-        priceSpinner = new JSpinner(priceModel);
-        JSpinner.NumberEditor priceEditor = new JSpinner.NumberEditor(priceSpinner, "$#0.00");
-        priceSpinner.setEditor(priceEditor);
+
+        gbc.gridx = 0; gbc.gridy = 4;
+        panel.add(new JLabel("Price (₱):"), gbc);
+        gbc.gridx = 1;
+        priceSpinner = new JSpinner(new SpinnerNumberModel(0.0, 0.0, 1000.0, 0.5));
+        priceSpinner.setEditor(new JSpinner.NumberEditor(priceSpinner, "₱#0.00"));
         panel.add(priceSpinner, gbc);
-        
-        // Sort combo box
-        gbc.gridx = 2; gbc.gridy = 2;
+
+        gbc.gridx = 0; gbc.gridy = 5;
         panel.add(new JLabel("Sort By:"), gbc);
-        gbc.gridx = 3;
+        gbc.gridx = 1;
         String[] sortOptions = {"Name", "Category", "Quantity", "Expiration Date", "Price"};
         sortComboBox = new JComboBox<>(sortOptions);
         panel.add(sortComboBox, gbc);
-        
+
         return panel;
     }
-    
+
     private JPanel createTablePanel() {
         JPanel panel = new JPanel(new BorderLayout());
-        
-        // Table model
-        String[] columnNames = {"Name", "Category", "Quantity", "Expiration Date", "Price"};
-        tableModel = new DefaultTableModel(columnNames, 0) {
-            @Override
-            public boolean isCellEditable(int row, int column) {
-                return false; // Make table non-editable
-            }
+        panel.setBackground(new Color(245, 255, 245));
+        String[] columns = {"Name", "Category", "Quantity", "Expiration Date", "Price"};
+        tableModel = new DefaultTableModel(columns, 0) {
+            public boolean isCellEditable(int row, int col) { return false; }
         };
-        
+
         inventoryTable = new JTable(tableModel);
-        inventoryTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        inventoryTable.getTableHeader().setReorderingAllowed(false);
-        
-        // Set column widths
-        inventoryTable.getColumnModel().getColumn(0).setPreferredWidth(150);
-        inventoryTable.getColumnModel().getColumn(1).setPreferredWidth(100);
-        inventoryTable.getColumnModel().getColumn(2).setPreferredWidth(80);
-        inventoryTable.getColumnModel().getColumn(3).setPreferredWidth(120);
-        inventoryTable.getColumnModel().getColumn(4).setPreferredWidth(80);
-        
+        inventoryTable.setFillsViewportHeight(true);
+        inventoryTable.setSelectionBackground(new Color(144, 238, 144));
+        inventoryTable.setSelectionForeground(Color.BLACK);
+        inventoryTable.setRowHeight(25);
+        inventoryTable.getTableHeader().setBackground(new Color(0, 128, 0));
+        inventoryTable.getTableHeader().setForeground(Color.WHITE);
+        inventoryTable.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 13));
+
+        rowSorter = new TableRowSorter<>(tableModel);
+        inventoryTable.setRowSorter(rowSorter);
+
+        searchField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            public void insertUpdate(javax.swing.event.DocumentEvent e) { filterTable(); }
+            public void removeUpdate(javax.swing.event.DocumentEvent e) { filterTable(); }
+            public void changedUpdate(javax.swing.event.DocumentEvent e) { filterTable(); }
+        });
+
         panel.add(new JScrollPane(inventoryTable), BorderLayout.CENTER);
-        
         return panel;
     }
-    
+
     private JPanel createButtonPanel() {
-        JPanel panel = new JPanel(new FlowLayout());
-        
-        JButton addButton = new JButton("Add Ingredient");
-        JButton sortButton = new JButton("Sort Inventory");
-        JButton clearButton = new JButton("Clear Form");  //clear form
-        JButton deleteButton = new JButton("Delete Selected");
-        JButton lowStockButton = new JButton("Show Low Stock");
-        
-        // Add button action
-        addButton.addActionListener(e -> addIngredient());
-        
-        // Sort button action
-        sortButton.addActionListener(e -> sortInventory());
-        
-        // Clear form button
-        clearButton.addActionListener(e -> clearForm());
-        
-        // Delete button action
-        deleteButton.addActionListener(e -> deleteSelectedIngredient());
-        
-        // Low stock button action
-        lowStockButton.addActionListener(e -> showLowStock());
-        
-        // Enter key support for adding ingredients
-        nameField.addActionListener(e -> addIngredient());
-        
-        panel.add(addButton);
-        panel.add(sortButton);
-        panel.add(clearButton);
-        panel.add(deleteButton);
-        panel.add(lowStockButton);
-        
-        return panel;
+    JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 10));
+    panel.setBackground(new Color(230, 250, 230));
+
+    JButton addButton = makeButton("Add Ingredient");
+    JButton editButton = makeButton("Edit Selected");
+    JButton sortButton = makeButton("Sort");
+    JButton clearButton = makeButton("Clear Form");
+    JButton deleteButton = makeButton("Delete Selected");
+    JButton lowStockButton = makeButton("Show Low Stock");
+
+    addButton.addActionListener(e -> addIngredient());
+    editButton.addActionListener(e -> editSelectedIngredient());
+    sortButton.addActionListener(e -> sortInventory());
+    clearButton.addActionListener(e -> clearForm());
+    deleteButton.addActionListener(e -> deleteSelectedIngredient());
+    lowStockButton.addActionListener(e -> showLowStock());
+
+    panel.add(addButton);
+    panel.add(editButton);
+    panel.add(sortButton);
+    panel.add(clearButton);
+    panel.add(deleteButton);
+    panel.add(lowStockButton);
+    return panel;
+}
+
+    private JButton makeButton(String text) {
+        JButton button = new JButton(text);
+        button.setBackground(new Color(0, 150, 0));
+        button.setForeground(Color.WHITE);
+        button.setFocusPainted(false);
+        button.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        button.setBorder(BorderFactory.createEmptyBorder(8, 15, 8, 15));
+        button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        return button;
     }
-    
+
+    private void filterTable() {
+        String text = searchField.getText().trim();
+        if (text.length() == 0) {
+            rowSorter.setRowFilter(null);
+        } else {
+            rowSorter.setRowFilter(RowFilter.regexFilter("(?i)" + text));
+        }
+    }
+
     private void addIngredient() {
         try {
             String name = nameField.getText().trim();
             if (name.isEmpty()) {
-                JOptionPane.showMessageDialog(this, "Please enter an ingredient name", "Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Please enter an ingredient name.", "Error", JOptionPane.ERROR_MESSAGE);
                 return;
             }
-            
+
             String category = (String) categoryComboBox.getSelectedItem();
             int quantity = (Integer) quantitySpinner.getValue();
             java.util.Date date = (java.util.Date) dateSpinner.getValue();
             LocalDate expirationDate = LocalDate.ofInstant(date.toInstant(), java.time.ZoneId.systemDefault());
             double price = (Double) priceSpinner.getValue();
-            
+
             Ingredient ingredient = new Ingredient(name, category, quantity, expirationDate, price);
             ingredients.add(ingredient);
-            
-            // Add to table
             tableModel.addRow(ingredient.toTableRow());
-            
-            // Clear form
             clearForm();
-            
-            // Show success message
-            JOptionPane.showMessageDialog(this, "Ingredient added successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
-            
-        } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Error adding ingredient: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, "Error adding ingredient: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
-    
+
     private void sortInventory() {
         String sortBy = (String) sortComboBox.getSelectedItem();
-        
         switch (sortBy) {
-            case "Name":
-                ingredients.sort((i1, i2) -> i1.getName().compareToIgnoreCase(i2.getName()));
-                break;
-            case "Category":
-                ingredients.sort((i1, i2) -> {
-                    int catCompare = i1.getCategory().compareToIgnoreCase(i2.getCategory());
-                    return catCompare != 0 ? catCompare : i1.getName().compareToIgnoreCase(i2.getName());
-                });
-                break;
-            case "Quantity":
-                ingredients.sort((i1, i2) -> Integer.compare(i1.getQuantity(), i2.getQuantity()));
-                break;
-            case "Expiration Date":
-                ingredients.sort((i1, i2) -> i1.getExpirationDate().compareTo(i2.getExpirationDate()));
-                break;
-            case "Price":
-                ingredients.sort((i1, i2) -> Double.compare(i1.getPrice(), i2.getPrice()));
-                break;
+            case "Name" -> ingredients.sort(Comparator.comparing(Ingredient::getName, String.CASE_INSENSITIVE_ORDER));
+            case "Category" -> ingredients.sort(Comparator.comparing(Ingredient::getCategory, String.CASE_INSENSITIVE_ORDER));
+            case "Quantity" -> ingredients.sort(Comparator.comparingInt(Ingredient::getQuantity));
+            case "Expiration Date" -> ingredients.sort(Comparator.comparing(Ingredient::getExpirationDate));
+            case "Price" -> ingredients.sort(Comparator.comparingDouble(Ingredient::getPrice));
         }
-        
         refreshTable();
-        JOptionPane.showMessageDialog(this, "Inventory sorted by " + sortBy, "Sorted", JOptionPane.INFORMATION_MESSAGE);
     }
-    
+
     private void deleteSelectedIngredient() {
-        int selectedRow = inventoryTable.getSelectedRow();
-        if (selectedRow == -1) {
-            JOptionPane.showMessageDialog(this, "Please select an ingredient to delete", "Error", JOptionPane.ERROR_MESSAGE);
+        int row = inventoryTable.getSelectedRow();
+        if (row == -1) {
+            JOptionPane.showMessageDialog(this, "Select an ingredient to delete.", "Error", JOptionPane.ERROR_MESSAGE);
             return;
         }
-        
-        int confirm = JOptionPane.showConfirmDialog(this, 
-            "Are you sure you want to delete this ingredient?", "Confirm Delete", JOptionPane.YES_NO_OPTION);
-        
+        int confirm = JOptionPane.showConfirmDialog(this, "Delete selected ingredient?", "Confirm", JOptionPane.YES_NO_OPTION);
         if (confirm == JOptionPane.YES_OPTION) {
-            ingredients.remove(selectedRow);
-            tableModel.removeRow(selectedRow);
+            ingredients.remove(inventoryTable.convertRowIndexToModel(row));
+            tableModel.removeRow(inventoryTable.convertRowIndexToModel(row));
         }
     }
+
+    private void editSelectedIngredient() {
+    int viewRow = inventoryTable.getSelectedRow();
+    if (viewRow == -1) {
+        JOptionPane.showMessageDialog(this, "Please select an ingredient to edit.", "Error", JOptionPane.ERROR_MESSAGE);
+        return;
+    }
     
+    int modelRow = inventoryTable.convertRowIndexToModel(viewRow);
+    Ingredient selectedIngredient = ingredients.get(modelRow);
+    
+    // Populate the form with the selected ingredient's data
+    nameField.setText(selectedIngredient.getName());
+    categoryComboBox.setSelectedItem(selectedIngredient.getCategory());
+    quantitySpinner.setValue(selectedIngredient.getQuantity());
+    
+    // Convert LocalDate to java.util.Date for the spinner
+    java.util.Date date = java.util.Date.from(selectedIngredient.getExpirationDate()
+            .atStartOfDay(java.time.ZoneId.systemDefault()).toInstant());
+    dateSpinner.setValue(date);
+    
+    priceSpinner.setValue(selectedIngredient.getPrice());
+    
+    // Remove the old ingredient (will be replaced with updated one)
+    ingredients.remove(modelRow);
+    tableModel.removeRow(modelRow);
+    
+    // Set focus to name field for easy editing
+    nameField.requestFocus();
+}
+
     private void showLowStock() {
-        List<Ingredient> lowStock = new ArrayList<>();
-        for (Ingredient ingredient : ingredients) {
-            if (ingredient.getQuantity() <= 10) {
-                lowStock.add(ingredient);
-            }
+        StringBuilder msg = new StringBuilder();
+        for (Ingredient i : ingredients) {
+            if (i.getQuantity() <= 10)
+                msg.append("- ").append(i.getName()).append(": ").append(i.getQuantity()).append(" units\n");
         }
-        
-        if (lowStock.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "No low stock items! All ingredients have sufficient quantity.", "Low Stock", JOptionPane.INFORMATION_MESSAGE);
-        } else {
-            StringBuilder message = new StringBuilder("Low Stock Items (≤ 10 units):\n\n");
-            for (Ingredient ingredient : lowStock) {
-                message.append(String.format("- %s: %d units\n", ingredient.getName(), ingredient.getQuantity()));
-            }
-            JOptionPane.showMessageDialog(this, message.toString(), "Low Stock Alert", JOptionPane.WARNING_MESSAGE);
-        }
+        if (msg.length() == 0)
+            msg.append("No low stock items!");
+        JOptionPane.showMessageDialog(this, msg.toString(), "Low Stock", JOptionPane.INFORMATION_MESSAGE);
     }
-    
+
     private void clearForm() {
         nameField.setText("");
         categoryComboBox.setSelectedIndex(0);
@@ -304,41 +325,88 @@ public class FoodInventoryGUI extends JFrame {
         priceSpinner.setValue(0.0);
         nameField.requestFocus();
     }
-    
+
     private void refreshTable() {
         tableModel.setRowCount(0);
-        for (Ingredient ingredient : ingredients) {
-            tableModel.addRow(ingredient.toTableRow());
-        }
+        for (Ingredient i : ingredients)
+            tableModel.addRow(i.toTableRow());
     }
-    
+
     private void loadSampleData() {
-        // Add some sample data
-        ingredients.add(new Ingredient("Tomatoes", "Produce", 15, LocalDate.now().plusDays(5), 2.50));
-        ingredients.add(new Ingredient("Chicken Breast", "Meat", 8, LocalDate.now().plusDays(3), 8.99));
-        ingredients.add(new Ingredient("Milk", "Dairy", 5, LocalDate.now().plusDays(2), 3.49));
-        ingredients.add(new Ingredient("Flour", "Dry Goods", 25, LocalDate.now().plusMonths(6), 4.25));
-        ingredients.add(new Ingredient("Eggs", "Dairy", 12, LocalDate.now().plusDays(10), 5.99));
-        
+            // Pizza Sauces & Bases
+        ingredients.add(new Ingredient("Pizza Sauce", "Produce", 25, LocalDate.now().plusMonths(2), 120.75));
+        ingredients.add(new Ingredient("Tomato Paste", "Produce", 18, LocalDate.now().plusMonths(6), 95.50));
+        ingredients.add(new Ingredient("Olive Oil", "Produce", 15, LocalDate.now().plusMonths(12), 350.00));
+        ingredients.add(new Ingredient("Garlic Puree", "Produce", 12, LocalDate.now().plusMonths(3), 85.25));
+        ingredients.add(new Ingredient("Basil Pesto", "Produce", 8, LocalDate.now().plusMonths(4), 280.50));
+
+        // Cheeses
+        ingredients.add(new Ingredient("Mozzarella", "Dairy", 45, LocalDate.now().plusWeeks(2), 320.75));
+        ingredients.add(new Ingredient("Parmesan", "Dairy", 22, LocalDate.now().plusMonths(3), 450.00));
+        ingredients.add(new Ingredient("Provolone", "Dairy", 18, LocalDate.now().plusWeeks(3), 380.25));
+        ingredients.add(new Ingredient("Ricotta", "Dairy", 15, LocalDate.now().plusDays(10), 275.50));
+        ingredients.add(new Ingredient("Cheddar", "Dairy", 20, LocalDate.now().plusWeeks(4), 295.80));
+
+        // Meats
+        ingredients.add(new Ingredient("Pepperoni", "Meat", 35, LocalDate.now().plusWeeks(3), 520.75));
+        ingredients.add(new Ingredient("Italian Sausage", "Meat", 28, LocalDate.now().plusWeeks(2), 480.50));
+        ingredients.add(new Ingredient("Ham", "Meat", 25, LocalDate.now().plusWeeks(2), 420.25));
+        ingredients.add(new Ingredient("Bacon", "Meat", 30, LocalDate.now().plusWeeks(3), 380.00));
+        ingredients.add(new Ingredient("Chicken Breast", "Meat", 22, LocalDate.now().plusDays(7), 350.75));
+        ingredients.add(new Ingredient("Ground Beef", "Meat", 20, LocalDate.now().plusDays(5), 450.25));
+        ingredients.add(new Ingredient("Salami", "Meat", 18, LocalDate.now().plusWeeks(4), 510.50));
+
+        // Vegetables
+        ingredients.add(new Ingredient("Mushrooms", "Produce", 32, LocalDate.now().plusDays(10), 120.75));
+        ingredients.add(new Ingredient("Green Peppers", "Produce", 28, LocalDate.now().plusDays(14), 95.50));
+        ingredients.add(new Ingredient("Onions", "Produce", 40, LocalDate.now().plusDays(21), 65.25));
+        ingredients.add(new Ingredient("Black Olives", "Produce", 25, LocalDate.now().plusMonths(6), 145.80));
+        ingredients.add(new Ingredient("Tomatoes", "Produce", 35, LocalDate.now().plusDays(7), 88.90));
+        ingredients.add(new Ingredient("Spinach", "Produce", 20, LocalDate.now().plusDays(5), 75.25));
+        ingredients.add(new Ingredient("Jalapeños", "Produce", 15, LocalDate.now().plusDays(12), 110.50));
+        ingredients.add(new Ingredient("Pineapple", "Produce", 18, LocalDate.now().plusDays(8), 165.75));
+
+        // Dough & Flour
+        ingredients.add(new Ingredient("Pizza Flour", "Dry Goods", 50, LocalDate.now().plusMonths(8), 280.00));
+        ingredients.add(new Ingredient("Bread Flour", "Dry Goods", 35, LocalDate.now().plusMonths(9), 245.50));
+        ingredients.add(new Ingredient("Yeast", "Dry Goods", 25, LocalDate.now().plusMonths(6), 185.75));
+        ingredients.add(new Ingredient("Sugar", "Dry Goods", 40, LocalDate.now().plusMonths(12), 65.25));
+        ingredients.add(new Ingredient("Salt", "Dry Goods", 60, LocalDate.now().plusMonths(24), 45.80));
+
+        // Herbs & Spices
+        ingredients.add(new Ingredient("Oregano", "Spices", 45, LocalDate.now().plusMonths(18), 95.50));
+        ingredients.add(new Ingredient("Basil", "Spices", 38, LocalDate.now().plusMonths(12), 110.25));
+        ingredients.add(new Ingredient("Garlic Powder", "Spices", 42, LocalDate.now().plusMonths(15), 85.75));
+        ingredients.add(new Ingredient("Red Pepper Flakes", "Spices", 35, LocalDate.now().plusMonths(20), 75.50));
+        ingredients.add(new Ingredient("Black Pepper", "Spices", 48, LocalDate.now().plusMonths(24), 120.00));
+
+        // Seafood (for specialty pizzas)
+        ingredients.add(new Ingredient("Anchovies", "Seafood", 12, LocalDate.now().plusMonths(3), 320.75));
+        ingredients.add(new Ingredient("Shrimp", "Seafood", 15, LocalDate.now().plusDays(5), 580.50));
+        ingredients.add(new Ingredient("Clams", "Seafood", 10, LocalDate.now().plusDays(4), 450.25));
+
+        // Specialty Items
+        ingredients.add(new Ingredient("Artichoke Hearts", "Produce", 18, LocalDate.now().plusMonths(6), 220.50));
+        ingredients.add(new Ingredient("Sun-Dried Tomatoes", "Produce", 22, LocalDate.now().plusMonths(8), 285.75));
+        ingredients.add(new Ingredient("Goat Cheese", "Dairy", 16, LocalDate.now().plusWeeks(3), 380.25));
+        ingredients.add(new Ingredient("Feta Cheese", "Dairy", 20, LocalDate.now().plusWeeks(4), 320.50));
+
+        // Beverages
+        ingredients.add(new Ingredient("Cola", "Beverages", 72, LocalDate.now().plusMonths(9), 45.00));
+        ingredients.add(new Ingredient("Lemonade", "Beverages", 65, LocalDate.now().plusMonths(8), 52.50));
+        ingredients.add(new Ingredient("Iced Tea", "Beverages", 58, LocalDate.now().plusMonths(7), 48.75));
+        ingredients.add(new Ingredient("Orange Soda", "Beverages", 45, LocalDate.now().plusMonths(10), 47.25));
+
+        // Frozen Items
+        ingredients.add(new Ingredient("French Fries", "Frozen", 35, LocalDate.now().plusMonths(6), 185.50));
+        ingredients.add(new Ingredient("Garlic Bread", "Frozen", 28, LocalDate.now().plusMonths(5), 220.75));
+        ingredients.add(new Ingredient("Mozzarella Sticks", "Frozen", 32, LocalDate.now().plusMonths(4), 280.25));
+
         refreshTable();
     }
+
     
     public static void main(String[] args) {
-    SwingUtilities.invokeLater(() -> {
-        try {
-            // Try to set system look and feel
-            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-        } catch (UnsupportedLookAndFeelException | ClassNotFoundException | 
-                 InstantiationException | IllegalAccessException e) {
-            // If system LAF fails, try cross-platform
-            try {
-                UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
-            } catch (Exception ex) {
-                System.err.println("Could not set any look and feel");
-            }
-        }
-        
-        new FoodInventoryGUI().setVisible(true);
-    });
-}
+        SwingUtilities.invokeLater(() -> new FoodInventoryGUI().setVisible(true));
+    }
 }
