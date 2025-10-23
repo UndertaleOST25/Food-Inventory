@@ -47,11 +47,9 @@ public class FoodInventoryGUI extends JFrame {
     private JSpinner quantitySpinner;
     private JSpinner dateSpinner;
     private JSpinner priceSpinner;
-    private JComboBox<String> sortComboBox;
     private JComboBox<String> algorithmComboBox;
     private JTextField searchField;
     private TableRowSorter<DefaultTableModel> rowSorter;
-    
 
     public FoodInventoryGUI() {
         ingredients = new ArrayList<>();
@@ -144,17 +142,9 @@ public class FoodInventoryGUI extends JFrame {
         panel.add(priceSpinner, gbc);
 
         gbc.gridx = 0; gbc.gridy = 5;
-        panel.add(new JLabel("Sort By:"), gbc);
+        panel.add(new JLabel("Sort Algorithm:"), gbc);
         gbc.gridx = 1;
-        String[] sortOptions = {"Name", "Category", "Quantity", "Expiration Date", "Price"};
-        sortComboBox = new JComboBox<>(sortOptions);
-        panel.add(sortComboBox, gbc);
-
-        // Add algorithm selection
-        gbc.gridx = 0; gbc.gridy = 6;
-        panel.add(new JLabel("Algorithm:"), gbc);
-        gbc.gridx = 1;
-        String[] algorithms = {"Bubble Sort", "Quick Sort", "Merge Sort"};
+        String[] algorithms = {"Built-in (Click Headers)", "Bubble Sort", "Quick Sort", "Merge Sort"};
         algorithmComboBox = new JComboBox<>(algorithms);
         panel.add(algorithmComboBox, gbc);
 
@@ -178,7 +168,30 @@ public class FoodInventoryGUI extends JFrame {
         inventoryTable.getTableHeader().setForeground(Color.WHITE);
         inventoryTable.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 13));
 
+        inventoryTable.setAutoCreateRowSorter(true);
+        
         rowSorter = new TableRowSorter<>(tableModel);
+        
+        rowSorter.setComparator(2, Comparator.comparingInt(o -> Integer.parseInt(o.toString()))); // Quantity
+        rowSorter.setComparator(3, Comparator.comparing(o -> {
+            // Date parsing for expiration date
+            try {
+                String dateStr = o.toString();
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy");
+                return LocalDate.parse(dateStr, formatter);
+            } catch (Exception e) {
+                return LocalDate.MIN;
+            }
+        }));
+        rowSorter.setComparator(4, Comparator.comparing(o -> {
+            try {
+                String priceStr = o.toString().replace("₱", "").trim();
+                return Double.parseDouble(priceStr);
+            } catch (Exception e) {
+                return 0.0;
+            }
+        }));
+        
         inventoryTable.setRowSorter(rowSorter);
 
         searchField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
@@ -192,31 +205,32 @@ public class FoodInventoryGUI extends JFrame {
     }
 
     private JPanel createButtonPanel() {
-    JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 10));
-    panel.setBackground(new Color(230, 250, 230));
+        JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 10));
+        panel.setBackground(new Color(230, 250, 230));
 
-    JButton addButton = makeButton("Add Ingredient");
-    JButton editButton = makeButton("Edit Selected");
-    JButton sortButton = makeButton("Sort");
-    JButton clearButton = makeButton("Clear Form");
-    JButton deleteButton = makeButton("Delete Selected");
-    JButton lowStockButton = makeButton("Show Low Stock");
+        JButton addButton = makeButton("Add Ingredient");
+        JButton editButton = makeButton("Edit Selected");
+        JButton clearButton = makeButton("Clear Form");
+        JButton deleteButton = makeButton("Delete Selected");
+        JButton lowStockButton = makeButton("Show Low Stock");
+        JButton demoSortButton = makeButton("Demo Sort Algorithm"); 
 
-    addButton.addActionListener(e -> addIngredient());
-    editButton.addActionListener(e -> editSelectedIngredient());
-    sortButton.addActionListener(e -> sortInventory());
-    clearButton.addActionListener(e -> clearForm());
-    deleteButton.addActionListener(e -> deleteSelectedIngredient());
-    lowStockButton.addActionListener(e -> showLowStock());
+        addButton.addActionListener(e -> addIngredient());
+        editButton.addActionListener(e -> editSelectedIngredient());
+        clearButton.addActionListener(e -> clearForm());
+        deleteButton.addActionListener(e -> deleteSelectedIngredient());
+        lowStockButton.addActionListener(e -> showLowStock());
+        demoSortButton.addActionListener(e -> demoSortAlgorithm());
 
-    panel.add(addButton);
-    panel.add(editButton);
-    panel.add(sortButton);
-    panel.add(clearButton);
-    panel.add(deleteButton);
-    panel.add(lowStockButton);
-    return panel;
-}
+        panel.add(addButton);
+        panel.add(editButton);
+        panel.add(clearButton);
+        panel.add(deleteButton);
+        panel.add(lowStockButton);
+        panel.add(demoSortButton);
+
+        return panel;
+    }
 
     private JButton makeButton(String text) {
         JButton button = new JButton(text);
@@ -256,22 +270,30 @@ public class FoodInventoryGUI extends JFrame {
             ingredients.add(ingredient);
             tableModel.addRow(ingredient.toTableRow());
             clearForm();
+            
+            JOptionPane.showMessageDialog(this, "Ingredient added successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
         } catch (Exception e) {
             JOptionPane.showMessageDialog(this, "Error adding ingredient: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
-    private void sortInventory() {
-        String sortBy = (String) sortComboBox.getSelectedItem();
+    private void demoSortAlgorithm() {
         String algorithm = (String) algorithmComboBox.getSelectedItem();
         
-        // Create comparator based on selected field
-        Comparator<Ingredient> comparator = getComparator(sortBy);
+        if ("Built-in (Click Headers)".equals(algorithm)) {
+            JOptionPane.showMessageDialog(this, 
+                "Use the column headers to sort!\n\n" +
+                "Click any column header to sort by that column.\n" +
+                "Click again to reverse the order.", 
+                "Column Header Sorting", 
+                JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        Comparator<Ingredient> comparator = Comparator.comparing(Ingredient::getName, String.CASE_INSENSITIVE_ORDER);
         
-        // Measure sorting time
         long startTime = System.nanoTime();
         
-        // Apply selected algorithm (only custom algorithms now)
         switch (algorithm) {
             case "Bubble Sort" -> bubbleSort(comparator);
             case "Quick Sort" -> quickSort(comparator);
@@ -279,50 +301,38 @@ public class FoodInventoryGUI extends JFrame {
         }
         
         long endTime = System.nanoTime();
-        long duration = (endTime - startTime) / 1000000; // Convert to milliseconds
+        long duration = (endTime - startTime) / 1000000;
         
         refreshTable();
         
-        // Show performance info
-        showSortingInfo(algorithm, duration);
-    }
-
-    private Comparator<Ingredient> getComparator(String sortBy) {
-        return switch (sortBy) {
-            case "Name" -> Comparator.comparing(Ingredient::getName, String.CASE_INSENSITIVE_ORDER);
-            case "Category" -> Comparator.comparing(Ingredient::getCategory, String.CASE_INSENSITIVE_ORDER);
-            case "Quantity" -> Comparator.comparingInt(Ingredient::getQuantity);
-            case "Expiration Date" -> Comparator.comparing(Ingredient::getExpirationDate);
-            case "Price" -> Comparator.comparingDouble(Ingredient::getPrice);
-            default -> Comparator.comparing(Ingredient::getName);
-        };
-    }
-
-    private void showSortingInfo(String algorithm, long duration) {
         String message = String.format(
-            "Algorithm: %s\nTime: %d ms\nItems sorted: %d",
+            "Algorithm: %s\nTime: %d ms\nItems sorted: %d\n\n" +
+            "Note: For regular use, click column headers to sort.",
             algorithm, duration, ingredients.size()
         );
         
-        JOptionPane.showMessageDialog(this, message, "Sorting Complete", JOptionPane.INFORMATION_MESSAGE);
+        JOptionPane.showMessageDialog(this, message, "Algorithm Demo", JOptionPane.INFORMATION_MESSAGE);
     }
 
     private void bubbleSort(Comparator<Ingredient> comparator) {
         int n = ingredients.size();
+        boolean swapped;
+        
         for (int i = 0; i < n - 1; i++) {
+            swapped = false;
             for (int j = 0; j < n - i - 1; j++) {
                 if (comparator.compare(ingredients.get(j), ingredients.get(j + 1)) > 0) {
-                    // Swap ingredients
-                    Ingredient temp = ingredients.get(j);
-                    ingredients.set(j, ingredients.get(j + 1));
-                    ingredients.set(j + 1, temp);
+                    swapIngredients(j, j + 1);
+                    swapped = true;
                 }
             }
+            if (!swapped) break;
         }
     }
 
     private void quickSort(Comparator<Ingredient> comparator) {
-    quickSort(0, ingredients.size() - 1, comparator);
+        if (ingredients.isEmpty()) return;
+        quickSort(0, ingredients.size() - 1, comparator);
     }
 
     private void quickSort(int low, int high, Comparator<Ingredient> comparator) {
@@ -349,7 +359,7 @@ public class FoodInventoryGUI extends JFrame {
 
     private void mergeSort(Comparator<Ingredient> comparator) {
         if (ingredients.size() <= 1) return;
-    
+        
         List<Ingredient> sorted = mergeSortHelper(new ArrayList<>(ingredients), comparator);
         ingredients.clear();
         ingredients.addAll(sorted);
@@ -402,40 +412,42 @@ public class FoodInventoryGUI extends JFrame {
         }
         int confirm = JOptionPane.showConfirmDialog(this, "Delete selected ingredient?", "Confirm", JOptionPane.YES_NO_OPTION);
         if (confirm == JOptionPane.YES_OPTION) {
-            ingredients.remove(inventoryTable.convertRowIndexToModel(row));
-            tableModel.removeRow(inventoryTable.convertRowIndexToModel(row));
+            int modelRow = inventoryTable.convertRowIndexToModel(row);
+            ingredients.remove(modelRow);
+            tableModel.removeRow(modelRow);
+            JOptionPane.showMessageDialog(this, "Ingredient deleted successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
         }
     }
 
     private void editSelectedIngredient() {
-    int viewRow = inventoryTable.getSelectedRow();
-    if (viewRow == -1) {
-        JOptionPane.showMessageDialog(this, "Please select an ingredient to edit.", "Error", JOptionPane.ERROR_MESSAGE);
-        return;
+        int viewRow = inventoryTable.getSelectedRow();
+        if (viewRow == -1) {
+            JOptionPane.showMessageDialog(this, "Please select an ingredient to edit.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        
+        int modelRow = inventoryTable.convertRowIndexToModel(viewRow);
+        Ingredient selectedIngredient = ingredients.get(modelRow);
+        
+        nameField.setText(selectedIngredient.getName());
+        categoryComboBox.setSelectedItem(selectedIngredient.getCategory());
+        quantitySpinner.setValue(selectedIngredient.getQuantity());
+        
+        java.util.Date date = java.util.Date.from(selectedIngredient.getExpirationDate()
+                .atStartOfDay(java.time.ZoneId.systemDefault()).toInstant());
+        dateSpinner.setValue(date);
+        
+        priceSpinner.setValue(selectedIngredient.getPrice());
+        
+        ingredients.remove(modelRow);
+        tableModel.removeRow(modelRow);
+        
+        nameField.requestFocus();
+        
+        JOptionPane.showMessageDialog(this, 
+            "Ingredient loaded for editing. Modify values and click 'Add Ingredient' to save.", 
+            "Edit Mode", JOptionPane.INFORMATION_MESSAGE);
     }
-    
-    int modelRow = inventoryTable.convertRowIndexToModel(viewRow);
-    Ingredient selectedIngredient = ingredients.get(modelRow);
-    
-    // Populate the form with the selected ingredient's data
-    nameField.setText(selectedIngredient.getName());
-    categoryComboBox.setSelectedItem(selectedIngredient.getCategory());
-    quantitySpinner.setValue(selectedIngredient.getQuantity());
-    
-    // Convert LocalDate to java.util.Date for the spinner
-    java.util.Date date = java.util.Date.from(selectedIngredient.getExpirationDate()
-            .atStartOfDay(java.time.ZoneId.systemDefault()).toInstant());
-    dateSpinner.setValue(date);
-    
-    priceSpinner.setValue(selectedIngredient.getPrice());
-    
-    // Remove the old ingredient (will be replaced with updated one)
-    ingredients.remove(modelRow);
-    tableModel.removeRow(modelRow);
-    
-    // Set focus to name field for easy editing
-    nameField.requestFocus();
-}
 
     private void showLowStock() {
         StringBuilder msg = new StringBuilder();
@@ -463,7 +475,8 @@ public class FoodInventoryGUI extends JFrame {
     }
 
     private void loadSampleData() {
-            // Pizza Sauces & Bases
+
+        // Pizza bases
         ingredients.add(new Ingredient("Pizza Sauce", "Produce", 25, LocalDate.now().plusMonths(2), 120.75));
         ingredients.add(new Ingredient("Tomato Paste", "Produce", 18, LocalDate.now().plusMonths(6), 95.50));
         ingredients.add(new Ingredient("Olive Oil", "Produce", 15, LocalDate.now().plusMonths(12), 350.00));
@@ -534,7 +547,6 @@ public class FoodInventoryGUI extends JFrame {
 
         refreshTable();
     }
-
     
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> new FoodInventoryGUI().setVisible(true));
