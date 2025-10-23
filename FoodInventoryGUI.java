@@ -1,7 +1,6 @@
 import javax.swing.*;
 import javax.swing.table.*;
 import java.awt.*;
-import java.awt.event.*;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -49,8 +48,10 @@ public class FoodInventoryGUI extends JFrame {
     private JSpinner dateSpinner;
     private JSpinner priceSpinner;
     private JComboBox<String> sortComboBox;
+    private JComboBox<String> algorithmComboBox;
     private JTextField searchField;
     private TableRowSorter<DefaultTableModel> rowSorter;
+    
 
     public FoodInventoryGUI() {
         ingredients = new ArrayList<>();
@@ -148,6 +149,14 @@ public class FoodInventoryGUI extends JFrame {
         String[] sortOptions = {"Name", "Category", "Quantity", "Expiration Date", "Price"};
         sortComboBox = new JComboBox<>(sortOptions);
         panel.add(sortComboBox, gbc);
+
+        // Add algorithm selection
+        gbc.gridx = 0; gbc.gridy = 6;
+        panel.add(new JLabel("Algorithm:"), gbc);
+        gbc.gridx = 1;
+        String[] algorithms = {"Bubble Sort", "Quick Sort", "Merge Sort"};
+        algorithmComboBox = new JComboBox<>(algorithms);
+        panel.add(algorithmComboBox, gbc);
 
         return panel;
     }
@@ -254,14 +263,135 @@ public class FoodInventoryGUI extends JFrame {
 
     private void sortInventory() {
         String sortBy = (String) sortComboBox.getSelectedItem();
-        switch (sortBy) {
-            case "Name" -> ingredients.sort(Comparator.comparing(Ingredient::getName, String.CASE_INSENSITIVE_ORDER));
-            case "Category" -> ingredients.sort(Comparator.comparing(Ingredient::getCategory, String.CASE_INSENSITIVE_ORDER));
-            case "Quantity" -> ingredients.sort(Comparator.comparingInt(Ingredient::getQuantity));
-            case "Expiration Date" -> ingredients.sort(Comparator.comparing(Ingredient::getExpirationDate));
-            case "Price" -> ingredients.sort(Comparator.comparingDouble(Ingredient::getPrice));
+        String algorithm = (String) algorithmComboBox.getSelectedItem();
+        
+        // Create comparator based on selected field
+        Comparator<Ingredient> comparator = getComparator(sortBy);
+        
+        // Measure sorting time
+        long startTime = System.nanoTime();
+        
+        // Apply selected algorithm (only custom algorithms now)
+        switch (algorithm) {
+            case "Bubble Sort" -> bubbleSort(comparator);
+            case "Quick Sort" -> quickSort(comparator);
+            case "Merge Sort" -> mergeSort(comparator);
         }
+        
+        long endTime = System.nanoTime();
+        long duration = (endTime - startTime) / 1000000; // Convert to milliseconds
+        
         refreshTable();
+        
+        // Show performance info
+        showSortingInfo(algorithm, duration);
+    }
+
+    private Comparator<Ingredient> getComparator(String sortBy) {
+        return switch (sortBy) {
+            case "Name" -> Comparator.comparing(Ingredient::getName, String.CASE_INSENSITIVE_ORDER);
+            case "Category" -> Comparator.comparing(Ingredient::getCategory, String.CASE_INSENSITIVE_ORDER);
+            case "Quantity" -> Comparator.comparingInt(Ingredient::getQuantity);
+            case "Expiration Date" -> Comparator.comparing(Ingredient::getExpirationDate);
+            case "Price" -> Comparator.comparingDouble(Ingredient::getPrice);
+            default -> Comparator.comparing(Ingredient::getName);
+        };
+    }
+
+    private void showSortingInfo(String algorithm, long duration) {
+        String message = String.format(
+            "Algorithm: %s\nTime: %d ms\nItems sorted: %d",
+            algorithm, duration, ingredients.size()
+        );
+        
+        JOptionPane.showMessageDialog(this, message, "Sorting Complete", JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    private void bubbleSort(Comparator<Ingredient> comparator) {
+        int n = ingredients.size();
+        for (int i = 0; i < n - 1; i++) {
+            for (int j = 0; j < n - i - 1; j++) {
+                if (comparator.compare(ingredients.get(j), ingredients.get(j + 1)) > 0) {
+                    // Swap ingredients
+                    Ingredient temp = ingredients.get(j);
+                    ingredients.set(j, ingredients.get(j + 1));
+                    ingredients.set(j + 1, temp);
+                }
+            }
+        }
+    }
+
+    private void quickSort(Comparator<Ingredient> comparator) {
+    quickSort(0, ingredients.size() - 1, comparator);
+    }
+
+    private void quickSort(int low, int high, Comparator<Ingredient> comparator) {
+        if (low < high) {
+            int pivotIndex = partition(low, high, comparator);
+            quickSort(low, pivotIndex - 1, comparator);
+            quickSort(pivotIndex + 1, high, comparator);
+        }
+    }
+
+    private int partition(int low, int high, Comparator<Ingredient> comparator) {
+        Ingredient pivot = ingredients.get(high);
+        int i = low - 1;
+        
+        for (int j = low; j < high; j++) {
+            if (comparator.compare(ingredients.get(j), pivot) <= 0) {
+                i++;
+                swapIngredients(i, j);
+            }
+        }
+        swapIngredients(i + 1, high);
+        return i + 1;
+    }
+
+    private void mergeSort(Comparator<Ingredient> comparator) {
+        if (ingredients.size() <= 1) return;
+    
+        List<Ingredient> sorted = mergeSortHelper(new ArrayList<>(ingredients), comparator);
+        ingredients.clear();
+        ingredients.addAll(sorted);
+    }
+
+    private List<Ingredient> mergeSortHelper(List<Ingredient> list, Comparator<Ingredient> comparator) {
+        if (list.size() <= 1) return list;
+        
+        int mid = list.size() / 2;
+        List<Ingredient> left = mergeSortHelper(new ArrayList<>(list.subList(0, mid)), comparator);
+        List<Ingredient> right = mergeSortHelper(new ArrayList<>(list.subList(mid, list.size())), comparator);
+        
+        return merge(left, right, comparator);
+    }
+
+    private List<Ingredient> merge(List<Ingredient> left, List<Ingredient> right, Comparator<Ingredient> comparator) {
+        List<Ingredient> merged = new ArrayList<>();
+        int i = 0, j = 0;
+        
+        while (i < left.size() && j < right.size()) {
+            if (comparator.compare(left.get(i), right.get(j)) <= 0) {
+                merged.add(left.get(i++));
+            } else {
+                merged.add(right.get(j++));
+            }
+        }
+        
+        while (i < left.size()) {
+            merged.add(left.get(i++));
+        }
+        
+        while (j < right.size()) {
+            merged.add(right.get(j++));
+        }
+        
+        return merged;
+    }
+
+    private void swapIngredients(int i, int j) {
+        Ingredient temp = ingredients.get(i);
+        ingredients.set(i, ingredients.get(j));
+        ingredients.set(j, temp);
     }
 
     private void deleteSelectedIngredient() {
